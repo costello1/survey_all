@@ -1,0 +1,191 @@
+import { startTransition, useDeferredValue, useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import WordCloud from '../components/WordCloud';
+import type { WordCloudData } from '../types';
+import { getSurveyWordCloud } from '../utils/api';
+import { getAuthToken } from '../utils/auth';
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+export default function WordCloudDisplayPage() {
+  const { surveyId = '' } = useParams();
+  const [data, setData] = useState<WordCloudData | null>(null);
+  const [selectedQuestionId, setSelectedQuestionId] = useState<number | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [liveMessage, setLiveMessage] = useState('Live');
+  const deferredWords = useDeferredValue(data?.words ?? []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadCloud(questionId?: number) {
+      try {
+        const response = await getSurveyWordCloud(surveyId, questionId);
+        if (active) {
+          setData(response);
+          setSelectedQuestionId(response.selected_question_id ?? undefined);
+          setError('');
+        }
+      } catch (loadError) {
+        if (active) {
+          setError(loadError instanceof Error ? loadError.message : 'Unable to load the projector word cloud.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadCloud(selectedQuestionId);
+
+    const token = getAuthToken();
+    if (!token) {
+      return () => {
+        active = false;
+      };
+    }
+
+    const source = new EventSource(`/api/admin/surveys/${surveyId}/events?token=${encodeURIComponent(token)}`);
+    source.onmessage = (event) => {
+      const payload = JSON.parse(event.data) as { type: string; timestamp?: string };
+      if (payload.type === 'response_submitted') {
+        setLiveMessage(`Updated ${formatDateTime(payload.timestamp ?? new Date().toISOString())}`);
+        void loadCloud(selectedQuestionId);
+      }
+    };
+    source.onerror = () => {
+      setLiveMessage('Reconnecting...');
+    };
+
+    return () => {
+      active = false;
+      source.close();
+    };
+  }, [surveyId, selectedQuestionId]);
+
+  function handleQuestionChange(value: string) {
+    const nextQuestionId = Number(value);
+    startTransition(() => {
+      setSelectedQuestionId(nextQuestionId);
+    });
+  }
+
+  async function handleFullscreen() {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+      return;
+    }
+    await document.exitFullscreen();
+  }
+
+  if (loading) {
+    return (
+      <main className="display-layout">
+        <section className="display-panel">
+          <div className="glass-card centered-card">
+            <h2>Loading projector view...</h2>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <main className="display-layout">
+        <section className="display-panel">
+          <div className="glass-card centered-card">
+            <p className="error-text">{error || 'Projector view unavailable.'}</p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  const hasWordCloudQuestions = data.available_questions.length > 0;
+  const selectedQuestion = data.available_questions.find((question) => question.id === selectedQuestionId);
+  const selectedLabel = selectedQuestion
+    ? selectedQuestion.type === 'multiple_choice'
+      ? 'Multiple choice source'
+      : 'Single word source'
+    : 'No question selected';
+  const totalMentions = deferredWords.reduce((sum, item) => sum + item.count, 0);
+
+  return (
+    <main className="display-layout">
+      <section className="display-panel">
+        <div className="display-topbar">
+          <div className="display-copy">
+            <p className="eyebrow">Projector view</p>
+            <h1>{data.survey_title}</h1>
+            <p className="muted-copy">{liveMessage}</p>
+            <div className="display-badge-row">
+              <span className="status-pill">Live</span>
+              <span className="response-pill">{totalMentions} total mentions</span>
+            </div>
+          </div>
+
+          <div className="display-controls display-controls-panel">
+            <label className="field display-field">
+              <span>Word cloud source</span>
+              <select
+                disabled={!hasWordCloudQuestions}
+                value={selectedQuestionId ?? ''}
+                onChange={(event) => handleQuestionChange(event.target.value)}
+              >
+                {hasWordCloudQuestions ? (
+                  data.available_questions.map((question) => (
+                    <option key={question.id} value={question.id}>
+                      {question.prompt} ({question.type === 'multiple_choice' ? 'Multiple choice' : 'Single word'})
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No supported questions available</option>
+                )}
+              </select>
+            </label>
+
+            <button className="primary-button" onClick={() => void handleFullscreen()} type="button">
+              Toggle Fullscreen
+            </button>
+            <Link className="ghost-button inline-link" to={`/admin/surveys/${surveyId}/word-cloud`}>
+              Back to Admin Word Cloud
+            </Link>
+          </div>
+        </div>
+
+        <section className="display-stage glass-card premium-card">
+          <div className="display-stage-header">
+            <div>
+              <p className="eyebrow">Current source</p>
+              <h2 className="display-question-title">{selectedQuestion?.prompt ?? 'No question selected'}</h2>
+            </div>
+            <div className="display-stage-metrics">
+              <span className="response-pill">{selectedQuestion ? selectedLabel : 'No source selected'}</span>
+              <span className="status-pill">{deferredWords.length} cloud terms</span>
+            </div>
+          </div>
+
+          {!hasWordCloudQuestions ? (
+            <div className="display-empty">
+              <h2>No supported questions available</h2>
+            </div>
+          ) : !deferredWords.length ? (
+            <div className="display-empty">
+              <h2>Waiting for answers</h2>
+            </div>
+          ) : (
+            <WordCloud words={deferredWords} />
+          )}
+        </section>
+      </section>
+    </main>
+  );
+}

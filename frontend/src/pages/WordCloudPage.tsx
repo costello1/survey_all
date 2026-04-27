@@ -1,0 +1,202 @@
+import { startTransition, useDeferredValue, useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import WordCloud from '../components/WordCloud';
+import type { WordCloudData } from '../types';
+import { getSurveyWordCloud } from '../utils/api';
+import { getAuthToken } from '../utils/auth';
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+export default function WordCloudPage() {
+  const { surveyId = '' } = useParams();
+  const [data, setData] = useState<WordCloudData | null>(null);
+  const [selectedQuestionId, setSelectedQuestionId] = useState<number | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [liveMessage, setLiveMessage] = useState('Live');
+  const deferredWords = useDeferredValue(data?.words ?? []);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadCloud(questionId?: number) {
+      try {
+        const response = await getSurveyWordCloud(surveyId, questionId);
+        if (active) {
+          setData(response);
+          setSelectedQuestionId(response.selected_question_id ?? undefined);
+          setError('');
+        }
+      } catch (loadError) {
+        if (active) {
+          setError(loadError instanceof Error ? loadError.message : 'Unable to load the word cloud.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadCloud(selectedQuestionId);
+
+    const token = getAuthToken();
+    if (!token) {
+      return () => {
+        active = false;
+      };
+    }
+
+    const source = new EventSource(`/api/admin/surveys/${surveyId}/events?token=${encodeURIComponent(token)}`);
+    source.onmessage = (event) => {
+      const payload = JSON.parse(event.data) as { type: string; timestamp?: string };
+      if (payload.type === 'response_submitted') {
+        setLiveMessage(`Updated ${formatDateTime(payload.timestamp ?? new Date().toISOString())}`);
+        void loadCloud(selectedQuestionId);
+      }
+    };
+    source.onerror = () => {
+      setLiveMessage('Reconnecting...');
+    };
+
+    return () => {
+      active = false;
+      source.close();
+    };
+  }, [surveyId, selectedQuestionId]);
+
+  function handleQuestionChange(value: string) {
+    const nextQuestionId = Number(value);
+    startTransition(() => {
+      setSelectedQuestionId(nextQuestionId);
+    });
+  }
+
+  if (loading) {
+    return (
+      <section className="page-stack">
+        <div className="glass-card centered-card">
+          <h3>Loading live word cloud...</h3>
+        </div>
+      </section>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <section className="page-stack">
+        <div className="glass-card centered-card">
+          <p className="error-text">{error || 'Word cloud unavailable.'}</p>
+        </div>
+      </section>
+    );
+  }
+
+  const hasWordCloudQuestions = data.available_questions.length > 0;
+  const hasWords = deferredWords.length > 0;
+  const selectedQuestion = data.available_questions.find((question) => question.id === selectedQuestionId);
+  const totalMentions = deferredWords.reduce((sum, item) => sum + item.count, 0);
+
+  return (
+    <section className="page-stack">
+      <header className="page-header page-hero">
+        <div>
+          <p className="eyebrow">Live word cloud</p>
+          <h1>{data.survey_title}</h1>
+          <p className="muted-copy page-hero-copy">{liveMessage}</p>
+        </div>
+        <div className="button-cluster">
+          <Link className="ghost-button inline-link" to={`/admin/surveys/${surveyId}`}>
+            Back to Survey
+          </Link>
+          <Link className="ghost-button inline-link" to={`/admin/surveys/${surveyId}/analytics`}>
+            Full Analytics
+          </Link>
+          {hasWordCloudQuestions ? (
+            <Link
+              className="primary-button inline-link"
+              target="_blank"
+              to={`/admin/surveys/${surveyId}/word-cloud/display`}
+            >
+              Open Projector View
+            </Link>
+          ) : null}
+        </div>
+      </header>
+
+      <section className="details-grid word-cloud-layout">
+        <article className="glass-card premium-card word-cloud-toolbar">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Source</p>
+              <h3>Question</h3>
+            </div>
+            <span className="response-pill">{data.available_questions.length} supported sources</span>
+          </div>
+
+          <label className="field">
+            <span>Question for word cloud</span>
+            <select
+              disabled={!data.available_questions.length}
+              value={selectedQuestionId ?? ''}
+              onChange={(event) => handleQuestionChange(event.target.value)}
+            >
+              {data.available_questions.length ? (
+                data.available_questions.map((question) => (
+                  <option key={question.id} value={question.id}>
+                    {question.prompt} ({question.type === 'multiple_choice' ? 'Multiple choice' : 'Single word'})
+                  </option>
+                ))
+              ) : (
+                <option value="">No supported questions available</option>
+              )}
+            </select>
+          </label>
+        </article>
+
+        <article className="glass-card premium-card word-cloud-toolbar">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">Summary</p>
+              <h3>Live counts</h3>
+            </div>
+          </div>
+
+          <div className="editor-summary-grid compact-summary-grid">
+            <article className="mini-stat-card">
+              <span className="eyebrow">Current source</span>
+              <strong>{selectedQuestion ? selectedQuestion.type.replace('_', ' ') : 'None'}</strong>
+            </article>
+            <article className="mini-stat-card">
+              <span className="eyebrow">Cloud terms</span>
+              <strong>{deferredWords.length}</strong>
+            </article>
+            <article className="mini-stat-card">
+              <span className="eyebrow">Mentions</span>
+              <strong>{totalMentions}</strong>
+            </article>
+          </div>
+        </article>
+      </section>
+
+      <section className="glass-card word-cloud-card premium-card">
+        {!hasWordCloudQuestions ? (
+          <div className="empty-card">
+            <p>This survey has no supported word cloud questions.</p>
+          </div>
+        ) : !hasWords ? (
+          <div className="empty-card">
+            <p>No answers yet.</p>
+          </div>
+        ) : (
+          <WordCloud words={deferredWords} />
+        )}
+      </section>
+    </section>
+  );
+}
