@@ -19,6 +19,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 import QRCode from 'qrcode';
 import { firebaseAuth, firestore } from '../firebase';
 import type {
@@ -303,11 +304,28 @@ function validatePublicAnswers(survey: PublicSurvey, answers: Array<{ question_i
 }
 
 export async function loginAdmin(username: string, password: string): Promise<LoginResponse> {
-  const credential = await signInWithEmailAndPassword(firebaseAuth, normalizeAdminEmail(username), password);
-  return {
-    token: credential.user.uid,
-    username: username.trim(),
-  };
+  const email = normalizeAdminEmail(username);
+
+  try {
+    const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+    return {
+      token: credential.user.uid,
+      username: username.trim(),
+    };
+  } catch (error) {
+    if (
+      error instanceof FirebaseError &&
+      ['auth/invalid-credential', 'auth/user-not-found', 'auth/wrong-password', 'auth/invalid-login-credentials'].includes(error.code)
+    ) {
+      throw new ApiError(`Firebase rejected these credentials. Create the admin user "${email}" in Firebase Authentication and use its password.`, 401);
+    }
+
+    if (error instanceof FirebaseError && error.code === 'auth/operation-not-allowed') {
+      throw new ApiError('Enable the Email/Password provider in Firebase Authentication.', 401);
+    }
+
+    throw error;
+  }
 }
 
 export async function getAdminMe(): Promise<{ username: string }> {
@@ -500,9 +518,20 @@ export async function submitPublicSurvey(
   publicToken: string,
   answers: Array<{ question_id: number; value: unknown }>,
 ): Promise<{ message: string }> {
-  const survey = await getPublicSurvey(publicToken);
+  const snapshot = await findSurveyByPublicKey(publicToken);
+  if (!snapshot) {
+    throw new ApiError('Survey not found.', 404);
+  }
+  const data = snapshot.data() as StoredSurvey;
+  const survey: PublicSurvey = {
+    id: Number(snapshot.id),
+    title: data.title,
+    description: data.description ?? null,
+    public_token: data.publicToken,
+    questions: data.questions ?? [],
+  };
   validatePublicAnswers(survey, answers);
-  await addDoc(collection(firestore, 'surveys', String(survey.id), 'responses'), {
+  await addDoc(collection(firestore, 'surveys', snapshot.id, 'responses'), {
     submittedAt: serverTimestamp(),
     answers,
   });

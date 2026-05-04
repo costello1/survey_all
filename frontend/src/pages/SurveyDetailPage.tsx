@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../components/ToastProvider';
 import type { ExportFilename, SurveyDetail } from '../types';
@@ -10,6 +10,7 @@ import {
   duplicateAdminSurvey,
   getAdminSurvey,
   getAdminSurveyQr,
+  subscribeSurveyAnalytics,
 } from '../utils/api';
 import { confirmAction, copyText } from '../utils/browser';
 
@@ -39,6 +40,7 @@ export default function SurveyDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const lastResponseCountRef = useRef<number | null>(null);
 
   async function loadSurvey() {
     try {
@@ -57,6 +59,26 @@ export default function SurveyDetailPage() {
     void loadSurvey();
   }, [surveyId]);
 
+  useEffect(() => {
+    const unsubscribe = subscribeSurveyAnalytics(
+      surveyId,
+      (analytics) => {
+        setSurvey((current) => (current ? { ...current, response_count: analytics.response_count } : current));
+        if (lastResponseCountRef.current !== null && analytics.response_count > lastResponseCountRef.current) {
+          pushToast({
+            tone: 'success',
+            title: 'New response received',
+            message: `${analytics.response_count} total responses are now stored in Firestore.`,
+          });
+        }
+        lastResponseCountRef.current = analytics.response_count;
+      },
+      () => undefined,
+    );
+
+    return unsubscribe;
+  }, [pushToast, surveyId]);
+
   async function handleCopyLink() {
     if (!survey) {
       return;
@@ -67,6 +89,27 @@ export default function SurveyDetailPage() {
         tone: 'success',
         title: 'Link copied',
         message: 'The public survey URL is ready to paste.',
+      });
+    } catch {
+      pushToast({
+        tone: 'error',
+        title: 'Copy failed',
+        message: 'Clipboard access was blocked by the browser.',
+      });
+    }
+  }
+
+  async function handleCopyWordCloudDisplayLink() {
+    if (!survey) {
+      return;
+    }
+    const displayUrl = `${window.location.origin}${import.meta.env.BASE_URL}admin/surveys/${survey.id}/word-cloud/display`;
+    try {
+      await copyText(displayUrl);
+      pushToast({
+        tone: 'success',
+        title: 'Display link copied',
+        message: 'The live word cloud display URL is ready to paste.',
       });
     } catch {
       pushToast({
@@ -241,7 +284,7 @@ export default function SurveyDetailPage() {
           </Link>
           {hasWordCloudQuestion ? (
             <Link className="ghost-button inline-link" target="_blank" to={`/admin/surveys/${survey.id}/word-cloud/display`}>
-              Open Projector View
+              Open Word Cloud Display
             </Link>
           ) : null}
         </div>
@@ -336,9 +379,18 @@ export default function SurveyDetailPage() {
 
           {!hasWordCloudQuestion ? (
             <div className="empty-card">
-              <p>This survey has no supported word cloud source yet.</p>
+              <p>No word cloud sources available</p>
             </div>
-          ) : null}
+          ) : (
+            <div className="card-actions">
+              <Link className="primary-button inline-link" target="_blank" to={`/admin/surveys/${survey.id}/word-cloud/display`}>
+                Open Word Cloud Display
+              </Link>
+              <button className="ghost-button" onClick={() => void handleCopyWordCloudDisplayLink()} type="button">
+                Copy Word Cloud Display Link
+              </button>
+            </div>
+          )}
         </article>
 
         <article className="glass-card premium-card detail-card">

@@ -127,7 +127,7 @@ export default function WordCloudDisplayPage() {
                     </option>
                   ))
                 ) : (
-                  <option value="">No supported questions available</option>
+                  <option value="">No word cloud sources available</option>
                 )}
               </select>
             </label>
@@ -155,7 +155,7 @@ export default function WordCloudDisplayPage() {
 
           {!hasWordCloudQuestions ? (
             <div className="display-empty">
-              <h2>No supported questions available</h2>
+              <h2>No word cloud sources available</h2>
             </div>
           ) : !deferredWords.length ? (
             <div className="display-empty">

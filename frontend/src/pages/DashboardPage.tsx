@@ -222,7 +222,7 @@ export default function DashboardPage() {
                   Open Public Page
                 </a>
                 <Link className="ghost-button inline-link" target="_blank" to={`/admin/surveys/${survey.id}/word-cloud/display`}>
-                  Open Projector View
+                  Open Word Cloud Display
                 </Link>
                 <Link className="ghost-button inline-link" to={`/admin/surveys/${survey.id}/analytics`}>
                   Analytics

@@ -82,7 +82,7 @@ export default function AnalyticsPage() {
             Back to Survey
           </Link>
           <Link className="ghost-button inline-link" target="_blank" to={`/admin/surveys/${surveyId}/word-cloud/display`}>
-            Open Projector View
+            Open Word Cloud Display
           </Link>
           <Link className="primary-button inline-link" to={`/admin/surveys/${surveyId}/word-cloud`}>
             Live Word Cloud

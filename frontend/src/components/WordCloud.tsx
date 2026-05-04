@@ -16,7 +16,7 @@ export default function WordCloud({ words }: WordCloudProps) {
   if (!words.length) {
     return (
       <div className="empty-card">
-        <p>No one-word answers have arrived yet.</p>
+        <p>Waiting for answers</p>
       </div>
     );
   }

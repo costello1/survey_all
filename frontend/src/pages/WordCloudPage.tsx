@@ -1,8 +1,10 @@
 import { startTransition, useDeferredValue, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import WordCloud from '../components/WordCloud';
+import { useToast } from '../components/ToastProvider';
 import type { WordCloudData } from '../types';
 import { subscribeSurveyWordCloud } from '../utils/api';
+import { copyText } from '../utils/browser';
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString('en-US', {
@@ -13,6 +15,7 @@ function formatDateTime(value: string) {
 
 export default function WordCloudPage() {
   const { surveyId = '' } = useParams();
+  const { pushToast } = useToast();
   const [data, setData] = useState<WordCloudData | null>(null);
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -55,6 +58,24 @@ export default function WordCloudPage() {
     startTransition(() => {
       setSelectedQuestionId(nextQuestionId);
     });
+  }
+
+  async function handleCopyDisplayLink() {
+    const displayUrl = `${window.location.origin}${import.meta.env.BASE_URL}admin/surveys/${surveyId}/word-cloud/display`;
+    try {
+      await copyText(displayUrl);
+      pushToast({
+        tone: 'success',
+        title: 'Display link copied',
+        message: 'The live word cloud display URL is ready to paste.',
+      });
+    } catch {
+      pushToast({
+        tone: 'error',
+        title: 'Copy failed',
+        message: 'Clipboard access was blocked by the browser.',
+      });
+    }
   }
 
   if (loading) {
@@ -103,8 +124,13 @@ export default function WordCloudPage() {
               target="_blank"
               to={`/admin/surveys/${surveyId}/word-cloud/display`}
             >
-              Open Projector View
+              Open Word Cloud Display
             </Link>
+          ) : null}
+          {hasWordCloudQuestions ? (
+            <button className="ghost-button" onClick={() => void handleCopyDisplayLink()} type="button">
+              Copy Word Cloud Display Link
+            </button>
           ) : null}
         </div>
       </header>
@@ -133,7 +159,7 @@ export default function WordCloudPage() {
                   </option>
                 ))
               ) : (
-                <option value="">No supported questions available</option>
+                <option value="">No word cloud sources available</option>
               )}
             </select>
           </label>
@@ -167,11 +193,11 @@ export default function WordCloudPage() {
       <section className="glass-card word-cloud-card premium-card">
         {!hasWordCloudQuestions ? (
           <div className="empty-card">
-            <p>This survey has no supported word cloud questions.</p>
+            <p>No word cloud sources available</p>
           </div>
         ) : !hasWords ? (
           <div className="empty-card">
-            <p>No answers yet.</p>
+            <p>Waiting for answers</p>
           </div>
         ) : (
           <WordCloud words={deferredWords} />
