@@ -1,7 +1,10 @@
+import { signOut } from 'firebase/auth';
+import { firebaseAuth } from '../firebase';
+
 const AUTH_TOKEN_KEY = 'survey_admin_token';
 
 export function getAuthToken(): string | null {
-  return window.localStorage.getItem(AUTH_TOKEN_KEY);
+  return firebaseAuth.currentUser?.uid ?? window.localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
 export function setAuthToken(token: string): void {
@@ -10,4 +13,5 @@ export function setAuthToken(token: string): void {
 
 export function clearAuthToken(): void {
   window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  void signOut(firebaseAuth);
 }

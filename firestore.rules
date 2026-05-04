@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /surveys/{surveyId} {
+      allow read: if signedIn() || resource.data.status == 'active';
+      allow create, update, delete: if signedIn();
+
+      match /responses/{responseId} {
+        allow create: if get(/databases/$(database)/documents/surveys/$(surveyId)).data.status == 'active';
+        allow read, update, delete: if signedIn();
+      }
+    }
+  }
+}

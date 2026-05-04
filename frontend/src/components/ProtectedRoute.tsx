@@ -1,38 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { getAdminMe } from '../utils/api';
-import { clearAuthToken, getAuthToken } from '../utils/auth';
+import { onAuthStateChanged } from 'firebase/auth';
+import { firebaseAuth } from '../firebase';
 
 export default function ProtectedRoute() {
   const location = useLocation();
-  const [status, setStatus] = useState<'checking' | 'ready' | 'unauthorized'>(
-    getAuthToken() ? 'checking' : 'unauthorized',
-  );
+  const [status, setStatus] = useState<'checking' | 'ready' | 'unauthorized'>('checking');
 
   useEffect(() => {
-    const token = getAuthToken();
-    if (!token) {
-      setStatus('unauthorized');
-      return;
-    }
-
-    let active = true;
-    getAdminMe()
-      .then(() => {
-        if (active) {
-          setStatus('ready');
-        }
-      })
-      .catch(() => {
-        clearAuthToken();
-        if (active) {
-          setStatus('unauthorized');
-        }
-      });
-
-    return () => {
-      active = false;
-    };
+    setStatus('checking');
+    return onAuthStateChanged(firebaseAuth, (user) => {
+      setStatus(user ? 'ready' : 'unauthorized');
+    });
   }, [location.pathname]);
 
   if (status === 'checking') {

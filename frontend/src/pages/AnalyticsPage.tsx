@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import ChoiceChart from '../components/ChoiceChart';
 import type { SurveyAnalytics } from '../types';
-import { getSurveyAnalytics } from '../utils/api';
-import { getAuthToken } from '../utils/auth';
+import { subscribeSurveyAnalytics } from '../utils/api';
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString('en-US', {
@@ -22,48 +21,28 @@ export default function AnalyticsPage() {
   useEffect(() => {
     let active = true;
 
-    async function loadAnalytics() {
-      try {
-        const data = await getSurveyAnalytics(surveyId);
+    const unsubscribe = subscribeSurveyAnalytics(
+      surveyId,
+      (data) => {
         if (active) {
           setAnalytics(data);
+          setLiveMessage(`Updated ${formatDateTime(new Date().toISOString())}`);
           setError('');
-        }
-      } catch (loadError) {
-        if (active) {
-          setError(loadError instanceof Error ? loadError.message : 'Unable to load analytics.');
-        }
-      } finally {
-        if (active) {
           setLoading(false);
         }
-      }
-    }
-
-    void loadAnalytics();
-
-    const token = getAuthToken();
-    if (!token) {
-      return () => {
-        active = false;
-      };
-    }
-
-    const source = new EventSource(`/api/admin/surveys/${surveyId}/events?token=${encodeURIComponent(token)}`);
-    source.onmessage = (event) => {
-      const payload = JSON.parse(event.data) as { type: string; timestamp?: string };
-      if (payload.type === 'response_submitted') {
-        setLiveMessage(`New response received at ${formatDateTime(payload.timestamp ?? new Date().toISOString())}.`);
-        void loadAnalytics();
-      }
-    };
-    source.onerror = () => {
-      setLiveMessage('Live connection interrupted. Trying to reconnect...');
-    };
+      },
+      (loadError) => {
+        if (active) {
+          setError(loadError.message || 'Unable to load analytics.');
+          setLiveMessage('Live connection interrupted.');
+          setLoading(false);
+        }
+      },
+    );
 
     return () => {
       active = false;
-      source.close();
+      unsubscribe();
     };
   }, [surveyId]);
 

@@ -2,8 +2,7 @@ import { startTransition, useDeferredValue, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import WordCloud from '../components/WordCloud';
 import type { WordCloudData } from '../types';
-import { getSurveyWordCloud } from '../utils/api';
-import { getAuthToken } from '../utils/auth';
+import { subscribeSurveyWordCloud } from '../utils/api';
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString('en-US', {
@@ -24,49 +23,30 @@ export default function WordCloudPage() {
   useEffect(() => {
     let active = true;
 
-    async function loadCloud(questionId?: number) {
-      try {
-        const response = await getSurveyWordCloud(surveyId, questionId);
+    const unsubscribe = subscribeSurveyWordCloud(
+      surveyId,
+      selectedQuestionId,
+      (response) => {
         if (active) {
           setData(response);
           setSelectedQuestionId(response.selected_question_id ?? undefined);
+          setLiveMessage(`Updated ${formatDateTime(new Date().toISOString())}`);
           setError('');
-        }
-      } catch (loadError) {
-        if (active) {
-          setError(loadError instanceof Error ? loadError.message : 'Unable to load the word cloud.');
-        }
-      } finally {
-        if (active) {
           setLoading(false);
         }
-      }
-    }
-
-    void loadCloud(selectedQuestionId);
-
-    const token = getAuthToken();
-    if (!token) {
-      return () => {
-        active = false;
-      };
-    }
-
-    const source = new EventSource(`/api/admin/surveys/${surveyId}/events?token=${encodeURIComponent(token)}`);
-    source.onmessage = (event) => {
-      const payload = JSON.parse(event.data) as { type: string; timestamp?: string };
-      if (payload.type === 'response_submitted') {
-        setLiveMessage(`Updated ${formatDateTime(payload.timestamp ?? new Date().toISOString())}`);
-        void loadCloud(selectedQuestionId);
-      }
-    };
-    source.onerror = () => {
-      setLiveMessage('Reconnecting...');
-    };
+      },
+      (loadError) => {
+        if (active) {
+          setError(loadError.message || 'Unable to load the word cloud.');
+          setLiveMessage('Reconnecting...');
+          setLoading(false);
+        }
+      },
+    );
 
     return () => {
       active = false;
-      source.close();
+      unsubscribe();
     };
   }, [surveyId, selectedQuestionId]);
 
