@@ -155,7 +155,7 @@ export default function WordCloudPage() {
               {data.available_questions.length ? (
                 data.available_questions.map((question) => (
                   <option key={question.id} value={question.id}>
-                    {question.prompt} ({question.type === 'multiple_choice' ? 'Multiple choice' : 'Single word'})
+                    {question.prompt} ({question.type.replace('_', ' ')})
                   </option>
                 ))
               ) : (

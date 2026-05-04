@@ -260,7 +260,7 @@ export default function SurveyDetailPage() {
   }
 
   const hasWordCloudQuestion = survey.questions.some(
-    (question) => question.type === 'single_word' || question.type === 'multiple_choice',
+    (question) => question.type === 'single_word' || question.type === 'single_choice' || question.type === 'multiple_choice',
   );
 
   return (

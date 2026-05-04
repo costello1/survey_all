@@ -95,9 +95,7 @@ export default function WordCloudDisplayPage() {
   const hasWordCloudQuestions = data.available_questions.length > 0;
   const selectedQuestion = data.available_questions.find((question) => question.id === selectedQuestionId);
   const selectedLabel = selectedQuestion
-    ? selectedQuestion.type === 'multiple_choice'
-      ? 'Multiple choice source'
-      : 'Single word source'
+    ? `${selectedQuestion.type.replace('_', ' ')} source`
     : 'No question selected';
   const totalMentions = deferredWords.reduce((sum, item) => sum + item.count, 0);
 
@@ -126,7 +124,7 @@ export default function WordCloudDisplayPage() {
                 {hasWordCloudQuestions ? (
                   data.available_questions.map((question) => (
                     <option key={question.id} value={question.id}>
-                      {question.prompt} ({question.type === 'multiple_choice' ? 'Multiple choice' : 'Single word'})
+                      {question.prompt} ({question.type.replace('_', ' ')})
                     </option>
                   ))
                 ) : (

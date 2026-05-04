@@ -137,7 +137,7 @@ export default function AnalyticsPage() {
               </div>
             )}
 
-            {(question.type === 'single_word' || question.type === 'multiple_choice') && (
+            {(question.type === 'single_word' || question.type === 'single_choice' || question.type === 'multiple_choice') && (
               <div className="word-list">
                 {question.word_counts.length ? (
                   question.word_counts.slice(0, 16).map((item) => (

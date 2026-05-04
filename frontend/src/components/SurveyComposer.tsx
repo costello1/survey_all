@@ -33,7 +33,7 @@ export default function SurveyComposer({
     (question) => question.type === 'single_choice' || question.type === 'multiple_choice',
   ).length;
   const wordCloudQuestionCount = questions.filter(
-    (question) => question.type === 'single_word' || question.type === 'multiple_choice',
+    (question) => question.type === 'single_word' || question.type === 'single_choice' || question.type === 'multiple_choice',
   ).length;
 
   return (

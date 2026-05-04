@@ -214,6 +214,7 @@ function buildAnalytics(survey: SurveyDetail, responses: Array<{ id: string; dat
         if (match) {
           match.count += 1;
         }
+        cloudWords.push(item.value);
       }
 
       if (question.type === 'multiple_choice' && Array.isArray(item.value)) {
@@ -263,7 +264,7 @@ function buildAnalytics(survey: SurveyDetail, responses: Array<{ id: string; dat
 
 function buildWordCloud(analytics: SurveyAnalytics, selectedQuestionId?: number): WordCloudData {
   const availableQuestions = analytics.questions.filter(
-    (question) => question.type === 'single_word' || question.type === 'multiple_choice',
+    (question) => question.type === 'single_word' || question.type === 'single_choice' || question.type === 'multiple_choice',
   );
   const selected = availableQuestions.find((question) => question.id === selectedQuestionId) ?? availableQuestions[0];
 
