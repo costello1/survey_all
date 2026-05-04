@@ -1,8 +1,8 @@
 import { startTransition, useDeferredValue, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import WordCloud from '../components/WordCloud';
 import type { WordCloudData } from '../types';
-import { subscribeSurveyWordCloud } from '../utils/api';
+import { subscribePublicSurveyWordCloud, subscribeSurveyWordCloud } from '../utils/api';
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString('en-US', {
@@ -13,6 +13,8 @@ function formatDateTime(value: string) {
 
 export default function WordCloudDisplayPage() {
   const { surveyId = '' } = useParams();
+  const location = useLocation();
+  const isAdminDisplay = location.pathname.includes('/admin/');
   const [data, setData] = useState<WordCloudData | null>(null);
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -23,7 +25,8 @@ export default function WordCloudDisplayPage() {
   useEffect(() => {
     let active = true;
 
-    const unsubscribe = subscribeSurveyWordCloud(
+    const subscribe = isAdminDisplay ? subscribeSurveyWordCloud : subscribePublicSurveyWordCloud;
+    const unsubscribe = subscribe(
       surveyId,
       selectedQuestionId,
       (response) => {
@@ -48,7 +51,7 @@ export default function WordCloudDisplayPage() {
       active = false;
       unsubscribe();
     };
-  }, [surveyId, selectedQuestionId]);
+  }, [isAdminDisplay, surveyId, selectedQuestionId]);
 
   function handleQuestionChange(value: string) {
     const nextQuestionId = Number(value);
@@ -135,9 +138,11 @@ export default function WordCloudDisplayPage() {
             <button className="primary-button" onClick={() => void handleFullscreen()} type="button">
               Toggle Fullscreen
             </button>
-            <Link className="ghost-button inline-link" to={`/admin/surveys/${surveyId}/word-cloud`}>
-              Back to Admin Word Cloud
-            </Link>
+            {isAdminDisplay ? (
+              <Link className="ghost-button inline-link" to={`/admin/surveys/${surveyId}/word-cloud`}>
+                Back to Admin Word Cloud
+              </Link>
+            ) : null}
           </div>
         </div>
 

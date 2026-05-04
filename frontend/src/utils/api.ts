@@ -131,12 +131,9 @@ async function responseCountFor(surveyId: string) {
   return snapshot.size;
 }
 
-function surveyFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>, responseCount: number): SurveyDetail {
-  const data = snapshot.data() as StoredSurvey;
-  const id = Number(snapshot.id);
-
+function surveyFromData(surveyId: string, data: StoredSurvey, responseCount: number): SurveyDetail {
   return {
-    id,
+    id: Number(surveyId),
     title: data.title,
     description: data.description ?? null,
     slug: data.slug,
@@ -146,9 +143,27 @@ function surveyFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>, respo
     response_count: responseCount,
     public_token: data.publicToken,
     can_edit_questions: responseCount === 0,
-    storage_path: storagePathFor(snapshot.id),
+    storage_path: storagePathFor(surveyId),
     questions: data.questions ?? [],
   };
+}
+
+function surveyFromSnapshot(snapshot: QueryDocumentSnapshot<DocumentData>, responseCount: number): SurveyDetail {
+  return surveyFromData(snapshot.id, snapshot.data() as StoredSurvey, responseCount);
+}
+
+async function getPublicSurveyDetailById(surveyId: string): Promise<SurveyDetail> {
+  const snapshot = await getDoc(doc(firestore, 'surveys', surveyId));
+  if (!snapshot.exists()) {
+    throw new ApiError('Survey not found.', 404);
+  }
+
+  const data = snapshot.data() as StoredSurvey;
+  if (data.status !== 'active') {
+    throw new ApiError('This word cloud is currently closed.', 403);
+  }
+
+  return surveyFromData(surveyId, data, await responseCountFor(surveyId));
 }
 
 async function findSurveyByPublicKey(publicKey: string) {
@@ -580,5 +595,38 @@ export function subscribeSurveyWordCloud(
     surveyId,
     (analytics) => onData(buildWordCloud(analytics, questionId)),
     onError,
+  );
+}
+
+export function subscribePublicSurveyWordCloud(
+  surveyId: string,
+  questionId: number | undefined,
+  onData: (data: WordCloudData) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  let survey: SurveyDetail | null = null;
+  void getPublicSurveyDetailById(surveyId)
+    .then((loadedSurvey) => {
+      survey = loadedSurvey;
+    })
+    .catch((error) => onError?.(error instanceof Error ? error : new Error('Unable to load the public word cloud.')));
+
+  return onSnapshot(
+    query(collection(firestore, 'surveys', surveyId, 'responses'), orderBy('submittedAt', 'asc')),
+    async (snapshot) => {
+      try {
+        if (!survey) {
+          survey = await getPublicSurveyDetailById(surveyId);
+        }
+        const responses = snapshot.docs.map((responseDoc) => ({
+          id: responseDoc.id,
+          data: responseDoc.data() as StoredResponse,
+        }));
+        onData(buildWordCloud(buildAnalytics({ ...survey, response_count: responses.length }, responses), questionId));
+      } catch (error) {
+        onError?.(error instanceof Error ? error : new Error('Unable to refresh the public word cloud.'));
+      }
+    },
+    (error) => onError?.(error),
   );
 }

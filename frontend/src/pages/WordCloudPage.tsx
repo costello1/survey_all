@@ -61,7 +61,7 @@ export default function WordCloudPage() {
   }
 
   async function handleCopyDisplayLink() {
-    const displayUrl = `${window.location.origin}${import.meta.env.BASE_URL}admin/surveys/${surveyId}/word-cloud/display`;
+    const displayUrl = `${window.location.origin}${import.meta.env.BASE_URL}word-cloud/${surveyId}`;
     try {
       await copyText(displayUrl);
       pushToast({
@@ -122,7 +122,7 @@ export default function WordCloudPage() {
             <Link
               className="primary-button inline-link"
               target="_blank"
-              to={`/admin/surveys/${surveyId}/word-cloud/display`}
+              to={`/word-cloud/${surveyId}`}
             >
               Open Word Cloud Display
             </Link>

@@ -221,7 +221,7 @@ export default function DashboardPage() {
                 <a className="ghost-button inline-link" href={survey.public_url} rel="noreferrer" target="_blank">
                   Open Public Page
                 </a>
-                <Link className="ghost-button inline-link" target="_blank" to={`/admin/surveys/${survey.id}/word-cloud/display`}>
+                <Link className="ghost-button inline-link" target="_blank" to={`/word-cloud/${survey.id}`}>
                   Open Word Cloud Display
                 </Link>
                 <Link className="ghost-button inline-link" to={`/admin/surveys/${survey.id}/analytics`}>

@@ -12,7 +12,8 @@ service cloud.firestore {
 
       match /responses/{responseId} {
         allow create: if get(/databases/$(database)/documents/surveys/$(surveyId)).data.status == 'active';
-        allow read, update, delete: if signedIn();
+        allow read: if signedIn() || get(/databases/$(database)/documents/surveys/$(surveyId)).data.status == 'active';
+        allow update, delete: if signedIn();
       }
     }
   }

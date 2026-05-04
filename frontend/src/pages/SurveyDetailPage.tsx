@@ -103,7 +103,7 @@ export default function SurveyDetailPage() {
     if (!survey) {
       return;
     }
-    const displayUrl = `${window.location.origin}${import.meta.env.BASE_URL}admin/surveys/${survey.id}/word-cloud/display`;
+    const displayUrl = `${window.location.origin}${import.meta.env.BASE_URL}word-cloud/${survey.id}`;
     try {
       await copyText(displayUrl);
       pushToast({
@@ -283,7 +283,7 @@ export default function SurveyDetailPage() {
             Open Word Cloud
           </Link>
           {hasWordCloudQuestion ? (
-            <Link className="ghost-button inline-link" target="_blank" to={`/admin/surveys/${survey.id}/word-cloud/display`}>
+            <Link className="ghost-button inline-link" target="_blank" to={`/word-cloud/${survey.id}`}>
               Open Word Cloud Display
             </Link>
           ) : null}
@@ -383,7 +383,7 @@ export default function SurveyDetailPage() {
             </div>
           ) : (
             <div className="card-actions">
-              <Link className="primary-button inline-link" target="_blank" to={`/admin/surveys/${survey.id}/word-cloud/display`}>
+              <Link className="primary-button inline-link" target="_blank" to={`/word-cloud/${survey.id}`}>
                 Open Word Cloud Display
               </Link>
               <button className="ghost-button" onClick={() => void handleCopyWordCloudDisplayLink()} type="button">

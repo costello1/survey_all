@@ -98,7 +98,7 @@ Admin workspace:
 - share surveys with public URLs and QR codes
 - download `survey.json`, `responses.json`, and `responses.csv`
 - view live analytics
-- open live word cloud and projector views
+- open live word cloud and a public display view at `/word-cloud/{surveyId}`
 
 Public participant flow:
 
@@ -113,6 +113,8 @@ Firestore stores:
 
 - `surveys/{surveyId}` for survey metadata and questions
 - `surveys/{surveyId}/responses/{responseId}` for submitted answers
+
+The public word cloud display reads active survey responses to render cloud terms in real time. Deploy `firestore.rules` after changing this behavior.
 
 Supported question types:
 

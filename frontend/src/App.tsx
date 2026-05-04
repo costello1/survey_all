@@ -18,6 +18,7 @@ export default function App() {
       <Route path="/" element={<Navigate to="/admin" replace />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route path="/survey/:publicToken" element={<PublicSurveyPage />} />
+      <Route path="/word-cloud/:surveyId" element={<WordCloudDisplayPage />} />
       <Route path="/:surveySlug" element={<PublicSurveyPage />} />
       <Route path="/thank-you" element={<ThankYouPage />} />
 

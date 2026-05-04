@@ -81,7 +81,7 @@ export default function AnalyticsPage() {
           <Link className="ghost-button inline-link" to={`/admin/surveys/${surveyId}`}>
             Back to Survey
           </Link>
-          <Link className="ghost-button inline-link" target="_blank" to={`/admin/surveys/${surveyId}/word-cloud/display`}>
+          <Link className="ghost-button inline-link" target="_blank" to={`/word-cloud/${surveyId}`}>
             Open Word Cloud Display
           </Link>
           <Link className="primary-button inline-link" to={`/admin/surveys/${surveyId}/word-cloud`}>
