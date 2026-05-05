@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import { useToast } from '../components/ToastProvider';
 import type { ExportFilename, SurveyListItem } from '../types';
 import {
+  deleteAdminSurvey,
   downloadSurveyExport,
   duplicateAdminSurvey,
   listAdminSurveys,
 } from '../utils/api';
-import { copyText } from '../utils/browser';
+import { confirmAction, copyText } from '../utils/browser';
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString('en-US', {
@@ -111,6 +112,34 @@ export default function DashboardPage() {
         tone: 'error',
         title: 'Duplicate failed',
         message: duplicateError instanceof Error ? duplicateError.message : 'Unable to duplicate the survey.',
+      });
+    } finally {
+      setBusySurveyId(null);
+    }
+  }
+
+  async function handleDelete(survey: SurveyListItem) {
+    const confirmed = confirmAction(
+      `Delete "${survey.title}" permanently? This removes the survey and all of its Firestore responses.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setBusySurveyId(survey.id);
+      await deleteAdminSurvey(String(survey.id));
+      await loadSurveys();
+      pushToast({
+        tone: 'success',
+        title: 'Survey deleted',
+        message: `"${survey.title}" and its responses were removed from Firestore.`,
+      });
+    } catch (deleteError) {
+      pushToast({
+        tone: 'error',
+        title: 'Delete failed',
+        message: deleteError instanceof Error ? deleteError.message : 'Unable to delete the survey.',
       });
     } finally {
       setBusySurveyId(null);
@@ -234,6 +263,14 @@ export default function DashboardPage() {
                   type="button"
                 >
                   Duplicate
+                </button>
+                <button
+                  className="ghost-button danger-button"
+                  disabled={busySurveyId === survey.id}
+                  onClick={() => void handleDelete(survey)}
+                  type="button"
+                >
+                  Delete Survey
                 </button>
                 {EXPORTS.map((exportConfig) => (
                   <button
